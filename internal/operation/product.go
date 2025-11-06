@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/PayeTonKawa-EPSI-2025/Common/events"
 	"github.com/PayeTonKawa-EPSI-2025/Common/models"
 	"github.com/PayeTonKawa-EPSI-2025/Products/internal/dto"
 	"github.com/PayeTonKawa-EPSI-2025/Products/internal/rabbitmq"
@@ -82,7 +83,7 @@ func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 			resp.Body = product
 
 			// Publish product created event
-			err := rabbitmq.PublishProductEvent(ch, rabbitmq.ProductCreated, product)
+			err := rabbitmq.PublishProductEvent(ch, events.ProductCreated, product)
 			if err != nil {
 				// Log the error but don't fail the request
 				// The product was already created in the database
@@ -131,7 +132,7 @@ func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 		resp.Body = product
 
 		// Publish product updated event
-		err := rabbitmq.PublishProductEvent(ch, rabbitmq.ProductUpdated, product)
+		err := rabbitmq.PublishProductEvent(ch, events.ProductUpdated, product)
 		if err != nil {
 			// Log the error but don't fail the request
 			// The product was already updated in the database
@@ -168,7 +169,7 @@ func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 
 		if results.Error == nil {
 			// Publish product deleted event
-			err := rabbitmq.PublishProductEvent(ch, rabbitmq.ProductDeleted, product)
+			err := rabbitmq.PublishProductEvent(ch, events.ProductDeleted, product)
 			if err != nil {
 				// Log the error but don't fail the request
 				// The product was already deleted from the database

@@ -1,107 +1,32 @@
 package rabbitmq
 
 import (
-	"encoding/json"
-	"log"
-	"time"
-
-	"github.com/PayeTonKawa-EPSI-2025/Common/models"
+	"github.com/PayeTonKawa-EPSI-2025/Products/internal/rabbitmq/event_handlers"
 	"gorm.io/gorm"
-
-	localModels "github.com/PayeTonKawa-EPSI-2025/Products/internal/models"
 )
-
-// GenericEvent is a structure for parsing event data from other services
-type GenericEvent struct {
-	Type      string          `json:"type"`
-	Data      json.RawMessage `json:"data"`
-	Timestamp time.Time       `json:"timestamp"`
-}
-
-// CustomerEvent represents an order event from the Customers service
-type CustomerEvent struct {
-	Type      string          `json:"type"`
-	Customer  models.Customer `json:"customer"`
-	Timestamp time.Time       `json:"timestamp"`
-}
-
-// OrderEvent represents a order event from the Orders service
-type OrderEvent struct {
-	Type      string       `json:"type"`
-	Order     models.Order `json:"order"`
-	Timestamp time.Time    `json:"timestamp"`
-}
 
 // SetupEventHandlers configures handlers for different event types
 func SetupEventHandlers(dbConn *gorm.DB) *EventRouter {
 	router := NewEventRouter()
 
-	// Handle customer.created events - create customer in local DB
-	router.RegisterHandler("customer.created", func(body []byte) error {
-		var event CustomerEvent
-		if err := json.Unmarshal(body, &event); err != nil {
-			log.Printf("Error unmarshaling customer event: %v", err)
-			return err
-		}
+	// Initialize event handlers
+	customerHandlers := event_handlers.NewCustomerEventHandlers(dbConn)
+	orderHandlers := event_handlers.NewOrderEventHandlers(dbConn)
+	debugHandlers := event_handlers.NewDebugEventHandlers()
 
-		log.Printf("Received customer.created event for customer %d", event.Customer.ID)
+	// Register customer event handlers
+	router.RegisterHandler("customer.created", customerHandlers.HandleCustomerCreated)
+	router.RegisterHandler("customer.updated", customerHandlers.HandleCustomerUpdated)
+	router.RegisterHandler("customer.deleted", customerHandlers.HandleCustomerDeleted)
 
-		// Create the customer in the local database
-		customer := localModels.Customer{
-			ID: event.Customer.ID,
-		}
+	// Register order event handlers
+	router.RegisterHandler("order.created", orderHandlers.HandleOrderCreated)
+	router.RegisterHandler("order.updated", orderHandlers.HandleOrderUpdated)
+	router.RegisterHandler("order.deleted", orderHandlers.HandleOrderDeleted)
 
-		if err := dbConn.Create(&customer).Error; err != nil {
-			log.Printf("Error creating customer in DB: %v", err)
-			return err
-		}
-
-		log.Printf("Successfully created customer %d in local database", customer.ID)
-
-		return nil
-	})
-
-	// Handle order.created events - create order in local DB
-	router.RegisterHandler("order.created", func(body []byte) error {
-		var event OrderEvent
-		if err := json.Unmarshal(body, &event); err != nil {
-			log.Printf("Error unmarshaling order event: %v", err)
-			return err
-		}
-
-		log.Printf("Received order.created event for order %d", event.Order.ID)
-
-		// Create the order in the local database
-		order := localModels.Order{
-			ID: event.Order.ID,
-		}
-
-		if err := dbConn.Create(&order).Error; err != nil {
-			log.Printf("Error creating order in DB: %v", err)
-			return err
-		}
-
-		log.Printf("Successfully created order %d in local database", order.ID)
-
-		return nil
-	})
-
-	// Catch-all handler for debugging - will receive all events
-	// Useful during development, can be removed in orderion
-	router.RegisterHandler("#", func(body []byte) error {
-		var generic GenericEvent
-		if err := json.Unmarshal(body, &generic); err != nil {
-			log.Printf("Error unmarshaling generic event: %v", err)
-			// Don't return error here as it might be a different format
-			// Just log and continue
-		} else {
-			log.Printf("Received event of type %s", generic.Type)
-		}
-
-		// Log the raw message for debugging
-		log.Printf("Raw event: %s", string(body))
-		return nil
-	})
+	// Register debug catch-all handler
+	// Useful during development, can be removed in production
+	router.RegisterHandler("#", debugHandlers.HandleAllEvents)
 
 	return router
 }

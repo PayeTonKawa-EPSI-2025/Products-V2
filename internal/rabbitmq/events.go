@@ -6,34 +6,19 @@ import (
 	"log"
 	"time"
 
+	"github.com/PayeTonKawa-EPSI-2025/Common/events"
 	"github.com/PayeTonKawa-EPSI-2025/Common/models"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// EventType represents the type of event being published
-type EventType string
-
-const (
-	ProductCreated EventType = "product.created"
-	ProductUpdated EventType = "product.updated"
-	ProductDeleted EventType = "product.deleted"
-)
-
-// ProductEvent represents the structure of a product event
-type ProductEvent struct {
-	Type      EventType    `json:"type"`
-	Product     models.Product `json:"product"`
-	Timestamp time.Time    `json:"timestamp"`
-}
-
 // PublishProductEvent publishes a product event to RabbitMQ
-func PublishProductEvent(ch *amqp.Channel, eventType EventType, product models.Product) error {
+func PublishProductEvent(ch *amqp.Channel, eventType events.EventType, product models.Product) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	event := ProductEvent{
+	event := events.ProductEvent{
 		Type:      eventType,
-		Product:     product,
+		Product:   product,
 		Timestamp: time.Now(),
 	}
 
