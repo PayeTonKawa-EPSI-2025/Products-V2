@@ -39,6 +39,22 @@ func (h *OrderEventHandlers) HandleOrderCreated(body []byte) error {
 	}
 
 	log.Printf("Successfully created order %d in local database", order.ID)
+
+	var orderProducts []localModels.OrderProduct
+
+	for _, productID := range event.Order.ProductIDs {
+		orderProducts = append(orderProducts, localModels.OrderProduct{
+			OrderID:   event.Order.OrderID,
+			ProductID: productID,
+		})
+	}
+
+	if err := h.db.Create(&orderProducts).Error; err != nil {
+		log.Printf("Failed to create OrderProduct records: %v\n", err)
+	}
+
+	log.Printf("Successfully created order products for order %d in local database", order.ID)
+
 	return nil
 }
 
