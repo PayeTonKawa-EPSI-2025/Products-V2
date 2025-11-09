@@ -38,7 +38,7 @@ func GetProduct(ctx context.Context, db *gorm.DB, id uint) (*dto.ProductOutput, 
 	resp := &dto.ProductOutput{}
 
 	var product models.Product
-	results := dbConn.First(&product, id)
+	results := db.First(&product, id)
 
 	if results.Error == nil {
 		resp.Body = product

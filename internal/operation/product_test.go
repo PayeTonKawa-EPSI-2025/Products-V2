@@ -42,8 +42,9 @@ func TestGetProducts(t *testing.T) {
 		"details_color",
 	}).
 		AddRow(1, nil, nil, nil, "Product A", 10, 19.99, "High quality product A", "Red").
-		AddRow(2, nil, nil, nil, "Product B", 5, 9.99, "Affordable product B", "Blue").
-		mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "products"`)).WillReturnRows(rows)
+		AddRow(2, nil, nil, nil, "Product B", 5, 9.99, "Affordable product B", "Blue")
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "products"`)).WillReturnRows(rows)
 
 	resp, err := operation.GetProducts(context.Background(), db)
 	if err != nil {
