@@ -62,6 +62,26 @@ func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 	})
 
 	huma.Register(api, huma.Operation{
+		OperationID:   "get-orders-products",
+		Summary:       "Get all products for an order",
+		Method:        http.MethodGet,
+		DefaultStatus: http.StatusOK,
+		Path:          "/products/{orderId}/orders",
+		Tags:          []string{"products"},
+	}, func(ctx context.Context, input *dto.OrderProductsInput) (*dto.ProductsOutput, error) {
+		resp := &dto.ProductsOutput{}
+
+		var products []models.Product
+		if err := dbConn.Where("order_id = ?", input.OrderID).Find(&products).Error; err != nil {
+			return nil, err
+		}
+
+		resp.Body.Products = products
+
+		return resp, nil
+	})
+
+	huma.Register(api, huma.Operation{
 		OperationID:   "create-product",
 		Summary:       "Create a product",
 		Method:        http.MethodPost,

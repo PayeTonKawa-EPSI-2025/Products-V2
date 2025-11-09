@@ -19,3 +19,7 @@ type ProductCreateInput struct {
 		Details models.ProductDetails `json:"details,omitempty"`
 	}
 }
+
+type OrderProductsInput struct {
+	OrderID uint `json:"orderId" path:"orderId"`
+}
