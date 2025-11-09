@@ -71,9 +71,21 @@ func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 	}, func(ctx context.Context, input *dto.OrderProductsInput) (*dto.ProductsOutput, error) {
 		resp := &dto.ProductsOutput{}
 
-		var products []models.Product
-		if err := dbConn.Where("order_id = ?", input.OrderID).Find(&products).Error; err != nil {
+		var orderProducts []models.OrderProduct
+		if err := dbConn.Where("order_id = ?", input.OrderID).Find(&orderProducts).Error; err != nil {
 			return nil, err
+		}
+
+		productIDs := make([]uint, 0, len(orderProducts))
+		for _, op := range orderProducts {
+			productIDs = append(productIDs, op.ProductID)
+		}
+
+		var products []models.Product
+		if len(productIDs) > 0 {
+			if err := dbConn.Where("id IN ?", productIDs).Find(&products).Error; err != nil {
+				return nil, err
+			}
 		}
 
 		resp.Body.Products = products
