@@ -8,6 +8,7 @@ import (
 	"github.com/PayeTonKawa-EPSI-2025/Common/events"
 	"github.com/PayeTonKawa-EPSI-2025/Common/models"
 	"github.com/PayeTonKawa-EPSI-2025/Products/internal/dto"
+	localModels "github.com/PayeTonKawa-EPSI-2025/Products/internal/models"
 	"github.com/PayeTonKawa-EPSI-2025/Products/internal/rabbitmq"
 	"github.com/danielgtaylor/huma/v2"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -71,7 +72,7 @@ func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 	}, func(ctx context.Context, input *dto.OrderProductsInput) (*dto.ProductsOutput, error) {
 		resp := &dto.ProductsOutput{}
 
-		var orderProducts []models.OrderProduct
+		var orderProducts []localModels.OrderProduct
 		if err := dbConn.Where("order_id = ?", input.OrderID).Find(&orderProducts).Error; err != nil {
 			return nil, err
 		}
