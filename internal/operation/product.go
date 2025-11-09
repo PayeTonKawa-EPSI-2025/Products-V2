@@ -8,6 +8,7 @@ import (
 	"github.com/PayeTonKawa-EPSI-2025/Common/events"
 	"github.com/PayeTonKawa-EPSI-2025/Common/models"
 	"github.com/PayeTonKawa-EPSI-2025/Products/internal/dto"
+	localModels "github.com/PayeTonKawa-EPSI-2025/Products/internal/models"
 	"github.com/PayeTonKawa-EPSI-2025/Products/internal/rabbitmq"
 	"github.com/danielgtaylor/huma/v2"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -59,6 +60,38 @@ func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 		}
 
 		return nil, results.Error
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID:   "get-orders-products",
+		Summary:       "Get all products for an order",
+		Method:        http.MethodGet,
+		DefaultStatus: http.StatusOK,
+		Path:          "/products/{orderId}/orders",
+		Tags:          []string{"products"},
+	}, func(ctx context.Context, input *dto.OrderProductsInput) (*dto.ProductsOutput, error) {
+		resp := &dto.ProductsOutput{}
+
+		var orderProducts []localModels.OrderProduct
+		if err := dbConn.Where("order_id = ?", input.OrderID).Find(&orderProducts).Error; err != nil {
+			return nil, err
+		}
+
+		productIDs := make([]uint, 0, len(orderProducts))
+		for _, op := range orderProducts {
+			productIDs = append(productIDs, op.ProductID)
+		}
+
+		var products []models.Product
+		if len(productIDs) > 0 {
+			if err := dbConn.Where("id IN ?", productIDs).Find(&products).Error; err != nil {
+				return nil, err
+			}
+		}
+
+		resp.Body.Products = products
+
+		return resp, nil
 	})
 
 	huma.Register(api, huma.Operation{
