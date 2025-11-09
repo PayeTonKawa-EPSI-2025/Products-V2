@@ -15,6 +15,72 @@ import (
 	"gorm.io/gorm"
 )
 
+// ----------------------
+// Extracted CRUD Functions
+// ----------------------
+
+// Get all orders
+func GetProducts(ctx context.Context, db *gorm.DB) (*dto.ProductsOutput, error) {
+	resp := &dto.ProductsOutput{}
+
+	var products []models.Product
+	results := db.Find(&products)
+
+	if results.Error == nil {
+		resp.Body.Products = products
+	}
+
+	return resp, results.Error
+}
+
+// Get a single product by ID
+func GetProduct(ctx context.Context, db *gorm.DB, id uint) (*dto.ProductOutput, error) {
+	resp := &dto.ProductOutput{}
+
+	var product models.Product
+	results := dbConn.First(&product, id)
+
+	if results.Error == nil {
+		resp.Body = product
+		return resp, nil
+	}
+
+	if errors.Is(results.Error, gorm.ErrRecordNotFound) {
+		return nil, huma.NewError(http.StatusNotFound, "Product not found")
+	}
+
+	return nil, results.Error
+}
+
+func GetProductsByIdOrder(ctx context.Context, db *gorm.DB, id uint) (*dto.ProductsOutput, error) {
+	resp := &dto.ProductsOutput{}
+
+	var orderProducts []localModels.OrderProduct
+	if err := db.Where("order_id = ?", id).Find(&orderProducts).Error; err != nil {
+		return nil, err
+	}
+
+	productIDs := make([]uint, 0, len(orderProducts))
+	for _, op := range orderProducts {
+		productIDs = append(productIDs, op.ProductID)
+	}
+
+	var products []models.Product
+	if len(productIDs) > 0 {
+		if err := db.Where("id IN ?", productIDs).Find(&products).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	resp.Body.Products = products
+
+	return resp, nil
+}
+
+// ----------------------
+// Register routes with Huma
+// ----------------------
+
 func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 
 	huma.Register(api, huma.Operation{
@@ -24,16 +90,7 @@ func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 		Path:        "/products",
 		Tags:        []string{"products"},
 	}, func(ctx context.Context, input *struct{}) (*dto.ProductsOutput, error) {
-		resp := &dto.ProductsOutput{}
-
-		var products []models.Product
-		results := dbConn.Find(&products)
-
-		if results.Error == nil {
-			resp.Body.Products = products
-		}
-
-		return resp, results.Error
+		return GetProducts(ctx, dbConn)
 	})
 
 	huma.Register(api, huma.Operation{
@@ -45,21 +102,7 @@ func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 	}, func(ctx context.Context, input *struct {
 		Id uint `path:"id"`
 	}) (*dto.ProductOutput, error) {
-		resp := &dto.ProductOutput{}
-
-		var product models.Product
-		results := dbConn.First(&product, input.Id)
-
-		if results.Error == nil {
-			resp.Body = product
-			return resp, nil
-		}
-
-		if errors.Is(results.Error, gorm.ErrRecordNotFound) {
-			return nil, huma.NewError(http.StatusNotFound, "Product not found")
-		}
-
-		return nil, results.Error
+		return GetProduct(ctx, dbConn, input.Id)
 	})
 
 	huma.Register(api, huma.Operation{
@@ -70,28 +113,7 @@ func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 		Path:          "/products/{orderId}/orders",
 		Tags:          []string{"products"},
 	}, func(ctx context.Context, input *dto.OrderProductsInput) (*dto.ProductsOutput, error) {
-		resp := &dto.ProductsOutput{}
-
-		var orderProducts []localModels.OrderProduct
-		if err := dbConn.Where("order_id = ?", input.OrderID).Find(&orderProducts).Error; err != nil {
-			return nil, err
-		}
-
-		productIDs := make([]uint, 0, len(orderProducts))
-		for _, op := range orderProducts {
-			productIDs = append(productIDs, op.ProductID)
-		}
-
-		var products []models.Product
-		if len(productIDs) > 0 {
-			if err := dbConn.Where("id IN ?", productIDs).Find(&products).Error; err != nil {
-				return nil, err
-			}
-		}
-
-		resp.Body.Products = products
-
-		return resp, nil
+		return GetProductsByIdOrder(ctx, dbConn, input.OrderID)
 	})
 
 	huma.Register(api, huma.Operation{
