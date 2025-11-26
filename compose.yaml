@@ -1,6 +1,6 @@
 services:
   api:
-    image: ghcr.io/payetonkawa-epsi-2025/products/paye-ton-kawa--products
+    image: ghcr.io/payetonkawa-epsi-2025/products-v2/paye-ton-kawa--products
     container_name: products-api
     environment:
       - DATABASE_DSN=postgres://postgresadmin:postgresadmin@database:5432/products
