@@ -1,6 +1,6 @@
 # Variables
 BINARY=build/paye-ton-kawa--products
-DOCKER_IMAGE=ghcr.io/payetonkawa-epsi-2025/products-v/paye-ton-kawa--products
+DOCKER_IMAGE=ghcr.io/payetonkawa-epsi-2025/products-v2/paye-ton-kawa--products
 SRC=cmd/main.go
 
 build: $(BINARY)
