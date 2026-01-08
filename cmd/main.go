@@ -47,20 +47,12 @@ func main() {
 
 	// Create a CLI app which takes a port option.
 	cli := humacli.New(func(hooks humacli.Hooks, options *Options) {
-		auth.InitKeycloak()
 		// Create a new router & API
 		router := chi.NewMux()
 
 		router.Use(middleware.Logger)
 		router.Use(middleware.Recoverer)
 		router.Use(middleware.Compress(5))
-		router.Use(auth.JWTMiddleware)
-
-		router.With(auth.RequireRole("products.read")).
-			Get("/products", listProducts)
-
-		router.With(auth.RequireRole("products.write")).
-			Post("/products", createProduct)
 
 		router.Use(metrics.Collector(metrics.CollectorOpts{
 			Host:  false,

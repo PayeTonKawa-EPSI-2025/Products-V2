@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
+	"strings"
 
+	"github.com/PayeTonKawa-EPSI-2025/Common-V2/auth"
 	"github.com/PayeTonKawa-EPSI-2025/Common-V2/events"
 	"github.com/PayeTonKawa-EPSI-2025/Common-V2/models"
 	"github.com/PayeTonKawa-EPSI-2025/Products-V2/internal/dto"
@@ -14,6 +17,42 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 	"gorm.io/gorm"
 )
+
+// ----------------------
+// Helper functions
+// ----------------------
+
+// Extract and verify token from Authorization header
+func extractAndVerifyToken(ctx context.Context, authHeader string) (*auth.Claims, error) {
+	if authHeader == "" {
+		return nil, huma.NewError(http.StatusUnauthorized, "Missing authorization header")
+	}
+
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		return nil, huma.NewError(http.StatusUnauthorized, "Invalid authorization format")
+	}
+
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+
+	idToken, err := auth.Verifier.Verify(ctx, token)
+	if err != nil {
+		return nil, huma.NewError(http.StatusUnauthorized, "Invalid token")
+	}
+
+	var claims auth.Claims
+	if err := idToken.Claims(&claims); err != nil {
+		return nil, huma.NewError(http.StatusUnauthorized, "Invalid token claims")
+	}
+
+	claims.Normalize()
+	return &claims, nil
+}
+
+// Check if user has a specific role
+func hasRole(claims *auth.Claims, role string) bool {
+	return slices.Contains(claims.Roles, role)
+}
+
 
 // ----------------------
 // Extracted CRUD Functions
@@ -123,7 +162,24 @@ func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 		DefaultStatus: http.StatusCreated,
 		Path:          "/products",
 		Tags:          []string{"products"},
-	}, func(ctx context.Context, input *dto.ProductCreateInput) (*dto.ProductOutput, error) {
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
+	}, func(ctx context.Context, input *struct {
+		Authorization string `header:"Authorization"`
+		dto.ProductCreateInput
+	}) (*dto.ProductOutput, error) {
+		
+		// Verify token and check admin role
+		claims, err := extractAndVerifyToken(ctx, input.Authorization)
+		if err != nil {
+			return nil, err
+		}
+
+		if !hasRole(claims, "admin") {
+			return nil, huma.NewError(http.StatusForbidden, "Admin access required")
+		}
+		
 		resp := &dto.ProductOutput{}
 
 		product := models.Product{
@@ -155,10 +211,25 @@ func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 		Method:      http.MethodPut,
 		Path:        "/products/{id}",
 		Tags:        []string{"products"},
+		Security: []map[string][]string{
+			{"bearer": {}},
+		},
 	}, func(ctx context.Context, input *struct {
+		Authorization string `header:"Authorization"`
 		Id uint `path:"id"`
 		dto.ProductCreateInput
 	}) (*dto.ProductOutput, error) {
+		
+		// Verify token and check admin role
+		claims, err := extractAndVerifyToken(ctx, input.Authorization)
+		if err != nil {
+			return nil, err
+		}
+
+		if !hasRole(claims, "admin") {
+			return nil, huma.NewError(http.StatusForbidden, "Admin access required")
+		}
+
 		resp := &dto.ProductOutput{}
 
 		var product models.Product
@@ -187,7 +258,7 @@ func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
 		resp.Body = product
 
 		// Publish product updated event
-		err := rabbitmq.PublishProductEvent(ch, events.ProductUpdated, product)
+		err = rabbitmq.PublishProductEvent(ch, events.ProductUpdated, product)
 		if err != nil {
 			// Log the error but don't fail the request
 			// The product was already updated in the database
