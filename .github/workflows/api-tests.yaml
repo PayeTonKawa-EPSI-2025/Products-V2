@@ -79,7 +79,7 @@ jobs:
       # Run Postman collection
       - name: Run Postman API tests
         run: |
-          postman collection run "25203538-5f6aaf3d-954b-475c-9f3e-9d0c25e788c4" -e "25203538-cbf0eac1-eaa6-4025-b3fb-0e8cf1821a1a"
+          postman collection run 25203538-9afc8b56-6b7d-4229-a76b-741e43f44fc6 -e 25203538-feb23433-73d8-4c32-aba2-0c4da7b055ea
 
       # Run ZAP OpenAPI scan on the same running API
       - name: OWASP ZAP OpenAPI Scan
