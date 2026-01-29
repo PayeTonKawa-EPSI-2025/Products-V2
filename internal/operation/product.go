@@ -82,6 +82,22 @@ func GetProductsByIdOrder(ctx context.Context, db *gorm.DB, id uint) (*dto.Produ
 // ----------------------
 
 func RegisterProductsRoutes(api huma.API, dbConn *gorm.DB, ch *amqp.Channel) {
+	// ----------------------
+	// Health endpoint
+	// ----------------------
+	huma.Register(api, huma.Operation{
+		OperationID: "health",
+		Summary:     "Health check endpoint",
+		Method:      http.MethodGet,
+		Path:        "/health",
+		Tags:        []string{"health"},
+	}, func(ctx context.Context, input *struct{}) (*struct {
+		Message string `json:"message"`
+	}, error) {
+		return &struct {
+			Message string `json:"message"`
+		}{Message: "ok"}, nil
+	})
 
 	huma.Register(api, huma.Operation{
 		OperationID: "get-products",
